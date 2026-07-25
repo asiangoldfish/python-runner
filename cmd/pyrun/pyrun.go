@@ -139,7 +139,7 @@ func run() bool {
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		// File not found
-		fmt.Fprintf(os.Stderr, "Virtual environment 'venv' was not found. Create one with 'pyenv init'.\n")
+		fmt.Fprintf(os.Stderr, "Virtual environment 'venv' was not found. Create one with 'pyrun init'.\n")
 		return false
 	} else {
 		// Other errors
