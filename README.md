@@ -20,7 +20,7 @@ pyrun app.py
 
 ## Usage
 To build and use `pyrun`:
-1. The project is built with Go. Any version works just as fine.
+1. The project is built with Go version 1.18.
 2. Build the executable:
    ```
    go build -o bin/

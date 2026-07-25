@@ -1,1 +1,6 @@
 bin/
+
+# Python test files
+.venv/
+.python-version
+requirements.txt
