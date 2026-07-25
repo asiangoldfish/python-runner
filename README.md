@@ -18,6 +18,15 @@ pyrun app.py
 
 *Python Runner* uses the `python` and `pip` executables from an existing virtual environment (`venv/`). If the directory does not exist, then it creates one with `venv`. Dependencies are thereafter installed if `requirements.txt` is present.
 
+## Installation
+The easiest way to install `pyrun` is by downloading the executable for your platform from the [releases](https://github.com/asiangoldfish/python-runner/releases). After downloading the file, rename it to `pyrun` and add it to PATH.
+
+Alternatively, it can be installed with the Go tooling:
+
+```
+go install github.com/asiangoldfish/pyrun
+```
+
 ## Usage
 To build and use `pyrun`:
 1. The project is built with Go version 1.18.
