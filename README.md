@@ -28,7 +28,7 @@ The easiest way to install `pyrun` is by downloading the executable for your pla
 Alternatively, it can be installed with the Go tooling:
 
 ```
-go install github.com/asiangoldfish/pyrun@latest
+go install github.com/asiangoldfish/pyrun/cmd/pyrun@latest
 ```
 
 *Option 3:*
