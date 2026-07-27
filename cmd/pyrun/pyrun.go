@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const VERSION = "1.1.2"
+
 func main() {
 	// Help pages
 	if len(os.Args) < 2 {
@@ -31,6 +33,10 @@ func main() {
 		if !run() {
 			os.Exit(1)
 		}
+	case "-v", "--version", "version":
+		fmt.Println("pyrun " + VERSION)
+	default:
+		fmt.Fprintln(os.Stderr, "Option '"+option+"' is not recognised.")
 	}
 }
 
@@ -45,6 +51,7 @@ List of available options:
     init       			 initialise a new or existing project
     help       			 this page
     run [SCRIPT_NAME]    execute a Python script.
+	version				 show the version number
     
 Option 'init' simply creates a new virtual environment in $PWD. It uses pyenv
 or the Python Install Manager to find the correct Python version based on
