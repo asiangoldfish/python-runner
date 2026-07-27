@@ -51,7 +51,7 @@ List of available options:
     init       			 initialise a new or existing project
     help       			 this page
     run [SCRIPT_NAME]    execute a Python script.
-	version				 show the version number
+    version              show the version number
     
 Option 'init' simply creates a new virtual environment in $PWD. It uses pyenv
 or the Python Install Manager to find the correct Python version based on
