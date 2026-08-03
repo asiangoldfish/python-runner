@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const VERSION = "1.2.0"
+const VERSION = "1.2.1"
 
 func main() {
 	// Help pages
@@ -165,6 +165,8 @@ func run() bool {
 	return true
 }
 
+// installPackage installs a Python package in the virtual environment and
+// writes new dependencies to requirements.txt.
 func installPackage() bool {
 	// Check script presence
 	if len(os.Args) < 3 {
@@ -193,6 +195,26 @@ func installPackage() bool {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return false
 	}
+
+	fmt.Println("Saving dependencies to requirements.txt...")
+	cmd = exec.Command(binDir+"/pip3", "freeze")
+
+	outfile, err := os.Create("./requirements.txt")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to create requirements.txt")
+		fmt.Fprintln(os.Stderr, err.Error())
+		return false
+	}
+	defer outfile.Close()
+	cmd.Stdout = outfile
+
+	if err := cmd.Run(); err != nil {
+		fmt.Fprint(os.Stderr, "Failed to save dependencies to requirements.txt.")
+		fmt.Fprint(os.Stderr, err.Error())
+		return false
+	}
+
+	fmt.Println("Packages successfully installed!")
 
 	return true
 }
