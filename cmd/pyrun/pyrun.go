@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const VERSION = "1.1.3"
+const VERSION = "1.1.4"
 
 func main() {
 	// Help pages
@@ -175,12 +175,6 @@ func run() bool {
 	return true
 }
 
-// getVenvPython gets the Python interpreter in the virtual environment
-func getVenvPython() string {
-	// TODO
-	return ".venv/Scripts"
-}
-
 func getPythonVersion() (string, error) {
 	info, err := os.Stat(".python-version")
 	var version string
@@ -210,7 +204,7 @@ func getPythonVersion() (string, error) {
 			return "", errors.New("Failed to read Python version input")
 		}
 
-		version = strings.TrimSuffix(version, "\n")
+		version = strings.TrimSpace(version)
 
 		// Write the version to .python-version
 		err := os.WriteFile(".python-version", []byte(version), 0644)
