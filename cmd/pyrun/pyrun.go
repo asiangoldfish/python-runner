@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const VERSION = "1.1.4"
+const VERSION = "1.2.0"
 
 func main() {
 	// Help pages
@@ -29,6 +29,10 @@ func main() {
 		}
 	case "-h", "--help", "help":
 		usage()
+	case "install":
+		if !installPackage() {
+			os.Exit(1)
+		}
 	case "run":
 		if !run() {
 			os.Exit(1)
@@ -42,7 +46,7 @@ func main() {
 
 func usage() {
 	fmt.Println(`Usage: pyrun [OPTION]
-    
+
 Python Runner is a wrapper for typical Python workflows. Under the hood, it uses
 pyenv (Linux/macOS) or Python Install Manager (Windows) to manage Python
 versions, and the built-in 'venv' module to manage Python environments.
@@ -50,9 +54,10 @@ versions, and the built-in 'venv' module to manage Python environments.
 List of available options:
     init       			 initialise a new or existing project
     help       			 this page
-    run [SCRIPT_NAME]    execute a Python script.
+    install              install a package using pip
+    run [SCRIPT_NAME]    execute a Python script
     version              show the version number
-    
+
 Option 'init' simply creates a new virtual environment in $PWD. It uses pyenv
 or the Python Install Manager to find the correct Python version based on
 '.python-version'. If 'requirements.txt is available, then dependencies are
@@ -98,18 +103,18 @@ func initialise() bool {
 		fmt.Println("Selected Python interpreter: " + pythonPath)
 	}
 
-	err = createVenv(pythonPath, venvDir, "requirements.txt")
+	err = createVenv(pythonPath, "requirements.txt")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return false
+	} else {
+		fmt.Println("Virtual environment '.venv' successfully created!")
 	}
 
 	return true
 }
 
 func run() bool {
-	var binDir string
-
 	// Check script presence
 	if len(os.Args) < 3 {
 		fmt.Fprintln(os.Stderr, "Option 'run' requires a script name argument.")
@@ -138,24 +143,9 @@ func run() bool {
 	args := append([]string{scriptName}, os.Args[3:]...)
 
 	// Get the bin path
-	_, err = os.Stat(".venv")
-	if err == nil {
-		// Venv was found. Get bin path
-		_, err := os.Stat(".venv/bin")
-		if err != nil {
-			binDir = ".venv/Scripts"
-		} else {
-			binDir = ".venv/bin"
-		}
-	} else if errors.Is(err, os.ErrNotExist) {
-		// File not found
-		fmt.Fprintf(os.Stderr, "Virtual environment '.venv' was not found. Create one with 'pyrun init'.\n")
-		return false
-	} else {
-		// Other errors
-		fmt.Fprintf(os.Stderr, "Virtual environment '.venv' cannot be accessed.\n")
+	binDir, err := getBinDir()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
-		return false
 	}
 
 	cmd := exec.Command(
@@ -173,6 +163,64 @@ func run() bool {
 	}
 
 	return true
+}
+
+func installPackage() bool {
+	// Check script presence
+	if len(os.Args) < 3 {
+		fmt.Fprintln(os.Stderr, "Option 'install' requires at least one package to install.")
+		return false
+	}
+
+	binDir, err := getBinDir()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return false
+	}
+
+	args := append([]string{"install"}, os.Args[2:]...)
+
+	cmd := exec.Command(
+		binDir+"/pip3",
+		args...,
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	cmd.Env = os.Environ()
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return false
+	}
+
+	return true
+}
+
+// getBinDir gets the virtual environment directory where the Python related
+// binary files reside.
+func getBinDir() (string, error) {
+	var binDir string
+
+	// Get the bin path
+	_, err := os.Stat(".venv")
+	if err == nil {
+		// Venv was found. Get bin path
+		_, err := os.Stat(".venv/bin")
+		if err != nil {
+			binDir = ".venv/Scripts"
+		} else {
+			binDir = ".venv/bin"
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+		// File not found
+		return "", errors.New("Virtual environment '.venv' was not found. Create one with 'pyrun init'.")
+	} else {
+		// Other errors
+		return "", errors.New("Virtual environment '.venv' cannot be accessed.\n" + err.Error())
+	}
+
+	return binDir, nil
 }
 
 func getPythonVersion() (string, error) {
@@ -222,11 +270,20 @@ func getPythonVersion() (string, error) {
 	return version, nil
 }
 
-func createVenv(pythonPath string, venvDir string, requirementsFile string) error {
+// createVenv creates a new virtual environment for the Python installation, and
+// installs dependencies found in 'requirements.txt'.
+//
+// Installing the virtual environment comes in two steps:
+// 1. Copying the Python interpreter and creating an environment for it
+// 2. Unpacking pip that is included in the Python installation.
+//
+// Although the second step is not required because 'venv' does this for us, we
+// can log the steps to the user so they are prepared for a small waiting time.
+func createVenv(pythonPath string, requirementsFile string) error {
 	fmt.Print("Project Python interpreter not found. ")
 	fmt.Println("Creating virtual environment...")
 
-	cmd := exec.Command(pythonPath, "-m", "venv", ".venv")
+	cmd := exec.Command(pythonPath, "-m", "venv", ".venv", "--without-pip")
 	if err := cmd.Run(); err != nil {
 		// Python not installed?
 		return err
@@ -234,12 +291,16 @@ func createVenv(pythonPath string, venvDir string, requirementsFile string) erro
 
 	// On Windows, the executables are stored in .venv/Scripts, while it is
 	// .venv/bin elsewhere.
-	var binDir string
-	_, err := os.Stat(venvDir + "/bin")
+	binDir, err := getBinDir()
 	if err != nil {
-		binDir = venvDir + "/Scripts"
-	} else {
-		binDir = venvDir + "/bin"
+		return err
+	}
+
+	// Install pip
+	fmt.Println("Installing pip. This can take a few seconds...")
+	cmd = exec.Command(binDir+"/python", "-m", "ensurepip")
+	if err := cmd.Run(); err != nil {
+		return err
 	}
 
 	// Install deps with requirements.txt
