@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const VERSION = "1.1.2"
+const VERSION = "1.1.3"
 
 func main() {
 	// Help pages
@@ -134,6 +134,9 @@ func run() bool {
 		return false
 	}
 
+	// Collect the rest of the args to be forwarded to the Python script.
+	args := append([]string{scriptName}, os.Args[3:]...)
+
 	// Get the bin path
 	_, err = os.Stat(".venv")
 	if err == nil {
@@ -146,18 +149,18 @@ func run() bool {
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		// File not found
-		fmt.Fprintf(os.Stderr, "Virtual environment 'venv' was not found. Create one with 'pyrun init'.\n")
+		fmt.Fprintf(os.Stderr, "Virtual environment '.venv' was not found. Create one with 'pyrun init'.\n")
 		return false
 	} else {
 		// Other errors
-		fmt.Fprintf(os.Stderr, "Virtual environment 'venv' cannot be accessed.\n")
+		fmt.Fprintf(os.Stderr, "Virtual environment '.venv' cannot be accessed.\n")
 		fmt.Fprintln(os.Stderr, err.Error())
 		return false
 	}
 
 	cmd := exec.Command(
 		binDir+"/python",
-		scriptName,
+		args...,
 	)
 
 	cmd.Stdout = os.Stdout
