@@ -10,7 +10,9 @@ import (
 	"strings"
 )
 
-const VERSION = "1.2.1"
+const VERSION = "1.2.3"
+
+var VERBOSE = false
 
 func main() {
 	// Help pages
@@ -19,10 +21,36 @@ func main() {
 		return
 	}
 
-	option := os.Args[1]
+	// We mark the starting index for options, as we parse the flags first.
+	startIndexForOptions := -1
+
+	// Find flags. These alter the program's behaviour.
+	for i, flag := range os.Args[1:] {
+		if flag[0] != '-' {
+			break
+		}
+
+		switch flag {
+		case "-v":
+			VERBOSE = true
+		default:
+			fmt.Fprintln(os.Stderr, "Flag "+flag+" is not recognised.")
+			os.Exit(1)
+		}
+
+		startIndexForOptions = i
+	}
+
+	rest := os.Args[startIndexForOptions+2:]
+
+	// No option was provided.
+	if startIndexForOptions <= 1 && len(rest) == 0 {
+		fmt.Fprintln(os.Stderr, "Flags were provided, but options are missing.")
+		return
+	}
 
 	// Parse arguments
-	switch option {
+	switch rest[0] {
 	case "init":
 		if !initialise() {
 			os.Exit(1)
@@ -30,26 +58,34 @@ func main() {
 	case "-h", "--help", "help":
 		usage()
 	case "install":
-		if !installPackage() {
+		if !installPackage(rest[1:]) {
 			os.Exit(1)
 		}
 	case "run":
-		if !run() {
+		if !run(rest[1:]) {
 			os.Exit(1)
 		}
-	case "-v", "--version", "version":
+	case "version":
 		fmt.Println("pyrun " + VERSION)
 	default:
-		fmt.Fprintln(os.Stderr, "Option '"+option+"' is not recognised.")
+		fmt.Fprintln(os.Stderr, "Option '"+rest[0]+"' is not recognised.")
 	}
 }
 
 func usage() {
-	fmt.Println(`Usage: pyrun [OPTION]
+	fmt.Println(`Usage: pyrun [FLAG...] OPTION
 
 Python Runner is a wrapper for typical Python workflows. Under the hood, it uses
 pyenv (Linux/macOS) or Python Install Manager (Windows) to manage Python
 versions, and the built-in 'venv' module to manage Python environments.
+
+An option is a special argument that performs a set of instructions. Pyrun
+mainly is used together with such an option. A flag is an optional argument that
+changes some of Pyrun's behaviour, if applicable. Flags should be provided
+before the options to prevent argument conflicts.
+
+List of flags:
+    -v                   print verbose outputs
 
 List of available options:
     init       			 initialise a new or existing project
@@ -114,14 +150,14 @@ func initialise() bool {
 	return true
 }
 
-func run() bool {
+func run(args []string) bool {
 	// Check script presence
-	if len(os.Args) < 3 {
+	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "Option 'run' requires a script name argument.")
 		return false
 	}
 
-	scriptName := os.Args[2]
+	scriptName := args[0]
 	info, err := os.Stat(scriptName)
 	if err == nil {
 		if info.IsDir() {
@@ -138,9 +174,6 @@ func run() bool {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return false
 	}
-
-	// Collect the rest of the args to be forwarded to the Python script.
-	args := append([]string{scriptName}, os.Args[3:]...)
 
 	// Get the bin path
 	binDir, err := getBinDir()
@@ -167,9 +200,9 @@ func run() bool {
 
 // installPackage installs a Python package in the virtual environment and
 // writes new dependencies to requirements.txt.
-func installPackage() bool {
+func installPackage(args []string) bool {
 	// Check script presence
-	if len(os.Args) < 3 {
+	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "Option 'install' requires at least one package to install.")
 		return false
 	}
@@ -180,11 +213,17 @@ func installPackage() bool {
 		return false
 	}
 
-	args := append([]string{"install"}, os.Args[2:]...)
+	cmdArgs := append([]string{"install"}, args...)
+
+	pipCommand, err := findPipCommand(binDir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return false
+	}
 
 	cmd := exec.Command(
-		binDir+"/pip3",
-		args...,
+	    pipCommand,
+		cmdArgs...,
 	)
 
 	cmd.Stdout = os.Stdout
@@ -197,7 +236,7 @@ func installPackage() bool {
 	}
 
 	fmt.Println("Saving dependencies to requirements.txt...")
-	cmd = exec.Command(binDir+"/pip3", "freeze")
+	cmd = exec.Command(pipCommand, "freeze")
 
 	outfile, err := os.Create("./requirements.txt")
 	if err != nil {
@@ -321,6 +360,10 @@ func createVenv(pythonPath string, requirementsFile string) error {
 	// Install pip
 	fmt.Println("Installing pip. This can take a few seconds...")
 	cmd = exec.Command(binDir+"/python", "-m", "ensurepip")
+	if VERBOSE {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -328,16 +371,24 @@ func createVenv(pythonPath string, requirementsFile string) error {
 	// Some Python installations bundle pip as the `pip` command, and others as
 	// `pip3`.
 	pipCommand, err := findPipCommand(binDir)
-	if err != nil {
-	    return err
+	if VERBOSE {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 	}
-	
+	if err != nil {
+		return err
+	}
+
 	// Install deps with requirements.txt
 	_, err = os.Stat(requirementsFile)
 	cmd = exec.Command(pipCommand, "install", "-r", requirementsFile)
 	if err == nil {
 		// requirements.txt was found. Install deps.
 		fmt.Println("Installing dependencies...")
+		if VERBOSE {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
 		if err := cmd.Run(); err != nil {
 			return err
 		}
@@ -433,15 +484,25 @@ func findPipCommand(binDir string) (string, error) {
 	pipCommand := ""
 
 	for _, v := range possibleCommands {
-		cmd := exec.Command(binDir +"/"+v)
+		cmd := exec.Command(binDir + "/" + v)
 		if err := cmd.Run(); err == nil {
-		    pipCommand = v
+			pipCommand = binDir + "/" + v
 		}
 	}
 
+	// Prevent using global pip command
+	_, err := os.Stat(pipCommand)
+	if err != nil {
+		return "", errors.New("Pip command '" + pipCommand + "' was recognised but not found as a file.")
+	}
+
+	if VERBOSE {
+		fmt.Println("Pip command found at: " + pipCommand)
+	}
+
 	if pipCommand == "" {
-	    return "", errors.New("The filepath to command 'pip' was not found.")
+		return "", errors.New("The filepath to command 'pip' was not found.")
 	} else {
-	    return pipCommand, nil
+		return pipCommand, nil
 	}
 }
