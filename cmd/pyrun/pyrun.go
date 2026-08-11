@@ -325,9 +325,16 @@ func createVenv(pythonPath string, requirementsFile string) error {
 		return err
 	}
 
+	// Some Python installations bundle pip as the `pip` command, and others as
+	// `pip3`.
+	pipCommand, err := findPipCommand(binDir)
+	if err != nil {
+	    return err
+	}
+	
 	// Install deps with requirements.txt
 	_, err = os.Stat(requirementsFile)
-	cmd = exec.Command(binDir+"/pip", "install", "-r", requirementsFile)
+	cmd = exec.Command(pipCommand, "install", "-r", requirementsFile)
 	if err == nil {
 		// requirements.txt was found. Install deps.
 		fmt.Println("Installing dependencies...")
@@ -409,4 +416,32 @@ func installPythonVersion(version string) (string, error) {
 
 	// Failed to get system Python path
 	return "", errors.New("Failed to get system Python path for version " + version)
+}
+
+// findPipCommand tries to find the command name for the Pip package manager.
+//
+// Arguments
+// ---------
+// binDir (string): directory where the pip command is expected to be found in.
+//
+// Return
+// ------
+// string: Filepath to the pip executable file.
+// error: Possible errors that may occur.
+func findPipCommand(binDir string) (string, error) {
+	possibleCommands := []string{"pip", "pip3"}
+	pipCommand := ""
+
+	for _, v := range possibleCommands {
+		cmd := exec.Command(binDir +"/"+v)
+		if err := cmd.Run(); err == nil {
+		    pipCommand = v
+		}
+	}
+
+	if pipCommand == "" {
+	    return "", errors.New("The filepath to command 'pip' was not found.")
+	} else {
+	    return pipCommand, nil
+	}
 }
