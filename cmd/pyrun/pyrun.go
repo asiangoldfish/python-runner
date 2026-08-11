@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const VERSION = "1.2.3"
+const VERSION = "1.2.4"
 
 var VERBOSE = false
 
@@ -493,7 +493,12 @@ func findPipCommand(binDir string) (string, error) {
 	// Prevent using global pip command
 	_, err := os.Stat(pipCommand)
 	if err != nil {
-		return "", errors.New("Pip command '" + pipCommand + "' was recognised but not found as a file.")
+		// The command may be recognised, but the file does not exist. This can
+		// happen on Windows, as files can be executed without *.exe.
+		_, windowsErr := os.Stat(pipCommand + ".exe")
+		if windowsErr != nil {
+			return "", errors.New("Pip command '" + pipCommand + "' was recognised but not found as a file.")
+		}
 	}
 
 	if VERBOSE {
