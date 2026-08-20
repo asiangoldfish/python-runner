@@ -52,3 +52,10 @@ Once installed, `pyrun` can be used as follows:
 ```
 pyrun version
 ```
+
+## Testing
+Integration test can executed with `go test ./...` and should be successfull before merging with/committing to main. The following prerequisites must be met:
+
+- Python version 3.12 is installed and is accessible via PATH.
+
+You can check the Python version using `python -V`.

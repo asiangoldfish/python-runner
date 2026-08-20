@@ -55,7 +55,8 @@ func main() {
 	case "-h", "--help", "help":
 		lib.Usage()
 	case "install":
-		if !lib.InstallPackage(rest[1:], VERBOSE) {
+		if err := lib.InstallPackage(rest[1:], VERBOSE, "."); err != nil {
+			fmt.Fprint(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	case "run":

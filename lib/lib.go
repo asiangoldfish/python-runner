@@ -63,7 +63,7 @@ func Initialise(verbose bool) bool {
 	// In the second option, we prompt to install the Python version if it is
 	// not already installed, and create the .python-version file.
 	fmt.Println("Getting local Python version from '.python-version'")
-	version, err = GetPythonVersion()
+	version, err = GetPythonVersion(".")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
 		return false
@@ -77,7 +77,7 @@ func Initialise(verbose bool) bool {
 		fmt.Println("Selected Python interpreter: " + pythonPath)
 	}
 
-	err = CreateVenv(pythonPath, "requirements.txt", verbose)
+	err = CreateVenv(".", pythonPath, "requirements.txt", verbose)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return false
@@ -114,7 +114,7 @@ func Run(args []string) bool {
 	}
 
 	// Get the bin path
-	binDir, err := GetBinDir()
+	binDir, err := GetBinDir(".")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
@@ -138,25 +138,24 @@ func Run(args []string) bool {
 
 // installPackage installs a Python package in the virtual environment and
 // writes new dependencies to requirements.txt.
-func InstallPackage(args []string, verbose bool) bool {
+//
+// venvParentDir specifies in which directory the ".venv" directory is in.
+func InstallPackage(packages []string, verbose bool, venvParentDir string) error {
 	// Check script presence
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Option 'install' requires at least one package to install.")
-		return false
+	if len(packages) == 0 {
+		return errors.New("Option 'install' requires at least one package to install.")
 	}
 
-	binDir, err := GetBinDir()
+	binDir, err := GetBinDir(venvParentDir)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		return false
+		return err
 	}
 
-	cmdArgs := append([]string{"install"}, args...)
+	cmdArgs := append([]string{"install"}, packages...)
 
 	pipCommand, err := FindPipCommand(binDir, verbose)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		return false
+		return err
 	}
 
 	cmd := exec.Command(
@@ -169,47 +168,47 @@ func InstallPackage(args []string, verbose bool) bool {
 
 	cmd.Env = os.Environ()
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		return false
+		return err
 	}
 
 	fmt.Println("Saving dependencies to requirements.txt...")
 	cmd = exec.Command(pipCommand, "freeze")
 
-	outfile, err := os.Create("./requirements.txt")
+	outfile, err := os.Create(venvParentDir + "/requirements.txt")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to create requirements.txt")
-		fmt.Fprintln(os.Stderr, err.Error())
-		return false
+		return errors.New("Failed to create requirements.txt. Error: " + err.Error())
 	}
 	defer outfile.Close()
 	cmd.Stdout = outfile
 
 	if err := cmd.Run(); err != nil {
-		fmt.Fprint(os.Stderr, "Failed to save dependencies to requirements.txt.")
-		fmt.Fprint(os.Stderr, err.Error())
-		return false
+		return errors.New("Failed to save dependencies to requirements.txt. Error: " + err.Error())
 	}
 
 	fmt.Println("Packages successfully installed!")
 
-	return true
+	return nil
 }
 
 // getBinDir gets the virtual environment directory where the Python related
-// binary files reside.
-func GetBinDir() (string, error) {
+// binary files reside. It assumes that the virtual environment directory is
+// ".venv".
+//
+// parentDir specifies what parent directory of ".venv" is. This should normally
+// be ".". The parameter is only useful for testing, where a caching directory
+// can be passed.
+func GetBinDir(parentDir string) (string, error) {
 	var binDir string
 
 	// Get the bin path
-	_, err := os.Stat(".venv")
+	_, err := os.Stat(parentDir + "/.venv")
 	if err == nil {
 		// Venv was found. Get bin path
-		_, err := os.Stat(".venv/bin")
+		_, err := os.Stat(parentDir + "/.venv/bin")
 		if err != nil {
-			binDir = ".venv/Scripts"
+			binDir = parentDir + "/.venv/Scripts"
 		} else {
-			binDir = ".venv/bin"
+			binDir = parentDir + "/.venv/bin"
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		// File not found
@@ -222,9 +221,12 @@ func GetBinDir() (string, error) {
 	return binDir, nil
 }
 
-func GetPythonVersion() (string, error) {
-	info, err := os.Stat(".python-version")
+func GetPythonVersion(parentDir string) (string, error) {
+	versionFilePath := parentDir + "/.python-version"
+
+	info, err := os.Stat(versionFilePath)
 	var version string
+
 	if err == nil {
 		// .python-version exists. It could be a directory. Check against this.
 		if info.IsDir() {
@@ -233,14 +235,18 @@ func GetPythonVersion() (string, error) {
 		}
 
 		// File was found.
-		data, err := os.ReadFile(".python-version")
+		data, err := os.ReadFile(versionFilePath)
 		if err != nil {
 			return "", errors.New("File '.python-version' was found, but it failed to be read.")
 		}
 
 		// TODO validate version
 		version = string(data)
-		fmt.Println("Found Python version: " + version)
+		if version == "" {
+			return "", errors.New("The content of .python-version is empty. Please remove the file and re-run the command.")
+		} else {
+			fmt.Println("Found Python version: " + version)
+		}
 
 	} else if errors.Is(err, os.ErrNotExist) {
 		// .python-version does *NOT* exist.
@@ -254,7 +260,7 @@ func GetPythonVersion() (string, error) {
 		version = strings.TrimSpace(version)
 
 		// Write the version to .python-version
-		err := os.WriteFile(".python-version", []byte(version), 0644)
+		err := os.WriteFile(versionFilePath, []byte(version), 0644)
 		if err != nil {
 			return "", err
 		} else {
@@ -273,16 +279,23 @@ func GetPythonVersion() (string, error) {
 // installs dependencies found in 'requirements.txt'.
 //
 // Installing the virtual environment comes in two steps:
-// 1. Copying the Python interpreter and creating an environment for it
-// 2. Unpacking pip that is included in the Python installation.
+//  1. Copying the Python interpreter and creating an environment for it
+//  2. Unpacking pip that is included in the Python installation.
 //
 // Although the second step is not required because 'venv' does this for us, we
 // can log the steps to the user so they are prepared for a small waiting time.
-func CreateVenv(pythonPath string, requirementsFile string, verbose bool) error {
+//
+// createVenv allows specifying the parent directory for the new virtual
+// environment directory. By default, this should be ".". This parameter is
+// useful only in testing, where a cache directory can be passed.
+//
+// pythonPath is the command or filepath to the system Python interpreter. It
+// is usually "python3", but the absolute filepath can be passed.
+func CreateVenv(parentDir string, pythonPath string, requirementsFile string, verbose bool) error {
 	fmt.Print("Project Python interpreter not found. ")
 	fmt.Println("Creating virtual environment...")
 
-	cmd := exec.Command(pythonPath, "-m", "venv", ".venv", "--without-pip")
+	cmd := exec.Command(pythonPath, "-m", "venv", parentDir+"/.venv", "--without-pip")
 	if err := cmd.Run(); err != nil {
 		// Python not installed?
 		return err
@@ -290,7 +303,7 @@ func CreateVenv(pythonPath string, requirementsFile string, verbose bool) error 
 
 	// On Windows, the executables are stored in .venv/Scripts, while it is
 	// .venv/bin elsewhere.
-	binDir, err := GetBinDir()
+	binDir, err := GetBinDir(parentDir)
 	if err != nil {
 		return err
 	}

@@ -1,5 +1,8 @@
 bin/
 
+# Testing
+.test_cache/
+
 # Python test files
 .venv/
 .python-version
