@@ -26,6 +26,8 @@ List of flags:
     -v                   print verbose outputs
 
 List of available options:
+    cmd [COMMAND]        execute an installed executable from the virtual
+                         environment
     init       			 initialise a new or existing project
     help       			 this page
     install              install a package using pip
@@ -37,7 +39,10 @@ or the Python Install Manager to find the correct Python version based on
 '.python-version'. If 'requirements.txt is available, then dependencies are
 installed with it.
 
-New dependencies can be installed using pip as per usual.`)
+New dependencies can be installed using pip as per usual.
+
+Option 'cmd' executes an installed executable file from the virtual environment.
+Some packages provide a CLI interface, and this option can invoke them.`)
 }
 
 func Initialise(verbose bool) bool {
@@ -461,4 +466,37 @@ func FindPipCommand(binDir string, verbose bool) (string, error) {
 	} else {
 		return pipCommand, nil
 	}
+}
+
+func ExecuteCmd(name string, args []string, venvParentDir string) error {
+	if name == "" {
+		return errors.New("Command name is missing")
+	}
+
+	binDir, err := GetBinDir(venvParentDir)
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(binDir + "/" + name); err != nil {
+		return errors.New("Command " + name + " it not found in " + binDir)
+	}
+
+	var cmdArgs []string
+	if len(args) > 0 {
+		cmdArgs = append([]string{}, args...)
+	}
+
+	cmd := exec.Command(
+		name,
+		cmdArgs...,
+	)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
 }

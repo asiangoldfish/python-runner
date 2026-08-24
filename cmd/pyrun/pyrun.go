@@ -48,6 +48,18 @@ func main() {
 
 	// Parse arguments
 	switch rest[0] {
+	case "cmd":
+		var cmdArgs []string
+		var cmdName string
+		if len(rest) >= 2 {
+			cmdName = rest[1]
+		}
+		if len(rest) >= 3 {
+			cmdArgs = rest[2:]
+		}
+		if err := lib.ExecuteCmd(cmdName, cmdArgs, "."); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+		}
 	case "init":
 		if !lib.Initialise(VERBOSE) {
 			os.Exit(1)

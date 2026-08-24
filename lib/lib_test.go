@@ -126,3 +126,34 @@ func TestFindPipCommand(t *testing.T) {
 	}
 }
 
+func TestExecuteCmd(t *testing.T) {
+	// Prepare test
+	cmd := exec.Command("python3", "-m", "venv", CACHE_DIR+"/.venv")
+
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	binDir, err := GetBinDir(CACHE_DIR)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// Mkdocs is not installed yet...
+	if err := ExecuteCmd(binDir+"/mkdocs", []string{"--help"}, CACHE_DIR); err == nil {
+		// TMP Negative test
+		t.Error("Test command 'mkdocs' is not installed yet. This should fail.")
+	}
+
+	// Install mkdocs
+	cmd = exec.Command(binDir+"/pip3", "install", "mkdocs")
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// Clean up
+	if err := os.RemoveAll(CACHE_DIR + "/.venv"); err != nil {
+		t.Error(err.Error())
+	}
+}
+
