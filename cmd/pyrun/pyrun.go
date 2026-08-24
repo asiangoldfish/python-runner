@@ -56,7 +56,7 @@ func main() {
 		lib.Usage()
 	case "install":
 		if err := lib.InstallPackage(rest[1:], VERBOSE, "."); err != nil {
-			fmt.Fprint(os.Stderr, err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	case "run":
