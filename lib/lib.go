@@ -28,8 +28,8 @@ List of flags:
 List of available options:
     cmd [COMMAND]        execute an installed executable from the virtual
                          environment
-    init       			 initialise a new or existing project
-    help       			 this page
+    init                 initialise a new or existing project
+    help                 this page
     install              install a package using pip
     run [SCRIPT_NAME]    execute a Python script
     version              show the version number
@@ -93,35 +93,30 @@ func Initialise(verbose bool) bool {
 	return true
 }
 
-func Run(args []string) bool {
+func Run(args []string) error {
 	// Check script presence
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Option 'run' requires a script name argument.")
-		return false
+		return errors.New("Option 'run' requires a script name argument.")
 	}
 
 	scriptName := args[0]
 	info, err := os.Stat(scriptName)
 	if err == nil {
 		if info.IsDir() {
-			fmt.Fprintln(os.Stderr, scriptName+" is a directory. It must be a file.")
-			return false
+			return errors.New(scriptName+" is a directory. It must be a file.")
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		// File not found
-		fmt.Fprintln(os.Stderr, "Script "+scriptName+" does not exist.")
-		return false
+		return errors.New("Script "+scriptName+" does not exist.")
 	} else {
 		// Other errors
-		fmt.Fprintln(os.Stderr, "File "+scriptName+" cannot be accessed.")
-		fmt.Fprintln(os.Stderr, err.Error())
-		return false
+		return errors.New("File "+scriptName+" cannot be accessed. Error: " + err.Error())
 	}
 
 	// Get the bin path
 	binDir, err := GetBinDir(".")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
+		return err
 	}
 
 	cmd := exec.Command(
@@ -134,11 +129,10 @@ func Run(args []string) bool {
 
 	cmd.Env = os.Environ()
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		return false
+		return err
 	}
 
-	return true
+	return nil
 }
 
 // installPackage installs a Python package in the virtual environment and

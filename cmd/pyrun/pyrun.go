@@ -72,7 +72,8 @@ func main() {
 			os.Exit(1)
 		}
 	case "run":
-		if !lib.Run(rest[1:]) {
+		if err := lib.Run(rest[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	case "version":

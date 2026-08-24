@@ -9,6 +9,7 @@ import (
 const CACHE_DIR = "../.test_cache"
 const PYTHON_VERSION = "3.12"
 const VERSION_FILE = ".python-version"
+const DATA_DIR = "../data"
 
 // TestGetPythonVersion tests whether the program successfully reads the correct
 // Python version. We don't test entering a new Python version as this is
@@ -157,3 +158,35 @@ func TestExecuteCmd(t *testing.T) {
 	}
 }
 
+func TestRun(t *testing.T) {
+	cmd := exec.Command("python3", "-m", "venv", CACHE_DIR+"/.venv")
+
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	binDir, err := GetBinDir(CACHE_DIR)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// Fail: no args
+	if err := Run([]string{}); err == nil {
+		t.Error("Pyrun should return error when no args are passed.")
+	}
+
+	// Fail: script name is incorrect
+	if err := Run([]string{DATA_DIR + "/wrong_script_name.py"}); err == nil {
+		t.Error("Pyrun should return error when a non-existent script is passed.")
+	}
+
+	// Success: script was passed
+	if err := Run([]string{DATA_DIR+"/test_run.py"); err != nil {
+		t.Error("Existing script was passed, but the Pyrun still failed to execute it.")
+	}
+
+	// Success: pass arguments
+	if err := Run([]string{DATA_DIR+"/test_run.py", "Test_OK"); err != nil {
+		t.Error("Failed to pass arguments to option 'run'")
+	}
+}
