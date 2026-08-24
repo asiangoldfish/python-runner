@@ -119,4 +119,10 @@ func TestFindPipCommand(t *testing.T) {
 	if _, err := FindPipCommand(binDir, false); err != nil {
 		t.Error(err.Error())
 	}
+
+	// Clean up
+	if err := os.RemoveAll(CACHE_DIR + "/.venv"); err != nil {
+		t.Error(err.Error())
+	}
 }
+
