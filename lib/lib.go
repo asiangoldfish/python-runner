@@ -334,7 +334,7 @@ func CreateVenv(parentDir string, pythonPath string, requirementsFile string, ve
 	cmd = exec.Command(pipCommand, "install", "-r", requirementsFile)
 	if err == nil {
 		// requirements.txt was found. Install deps.
-		fmt.Println("Installing dependencies...")
+		fmt.Println("Installing dependencies... This may fail if the HTTP connection to Pypi times out.")
 		if verbose {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
@@ -473,7 +473,7 @@ func ExecuteCmd(name string, args []string, venvParentDir string) error {
 	}
 
 	if _, err := os.Stat(binDir + "/" + name); err != nil {
-		return errors.New("Command " + name + " it not found in " + binDir)
+		return errors.New("Command " + name + " is not found in " + binDir)
 	}
 
 	var cmdArgs []string

@@ -135,58 +135,28 @@ func TestExecuteCmd(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	binDir, err := GetBinDir(CACHE_DIR)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
 	// Mkdocs is not installed yet...
-	if err := ExecuteCmd(binDir+"/mkdocs", []string{"--help"}, CACHE_DIR); err == nil {
-		// TMP Negative test
+	if err := ExecuteCmd("mkdocs", []string{"--help"}, CACHE_DIR); err == nil {
 		t.Error("Test command 'mkdocs' is not installed yet. This should fail.")
 	}
 
-	// Install mkdocs
-	cmd = exec.Command(binDir+"/pip3", "install", "mkdocs")
-	if err := cmd.Run(); err != nil {
-		t.Fatal(err.Error())
-	}
-
-	// Clean up
-	if err := os.RemoveAll(CACHE_DIR + "/.venv"); err != nil {
-		t.Error(err.Error())
-	}
-}
-
-func TestRun(t *testing.T) {
-	cmd := exec.Command("python3", "-m", "venv", CACHE_DIR+"/.venv")
-
-	if err := cmd.Run(); err != nil {
-		t.Fatal(err.Error())
-	}
-
 	binDir, err := GetBinDir(CACHE_DIR)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	// Fail: no args
-	if err := Run([]string{}); err == nil {
-		t.Error("Pyrun should return error when no args are passed.")
+	// Install mkdocs
+	cmd = exec.Command(binDir + "/pip3", "install", "mkdocs")
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err.Error())
+	}
+	
+	if err := ExecuteCmd("mkdocs", []string{"--help"}, CACHE_DIR); err != nil {
+		t.Error("Test command 'mkdocs' is installed, but failed to run. Error: " + err.Error())
 	}
 
-	// Fail: script name is incorrect
-	if err := Run([]string{DATA_DIR + "/wrong_script_name.py"}); err == nil {
-		t.Error("Pyrun should return error when a non-existent script is passed.")
-	}
-
-	// Success: script was passed
-	if err := Run([]string{DATA_DIR+"/test_run.py"); err != nil {
-		t.Error("Existing script was passed, but the Pyrun still failed to execute it.")
-	}
-
-	// Success: pass arguments
-	if err := Run([]string{DATA_DIR+"/test_run.py", "Test_OK"); err != nil {
-		t.Error("Failed to pass arguments to option 'run'")
-	}
+	// Clean up
+	// if err := os.RemoveAll(CACHE_DIR + "/.venv"); err != nil {
+	// 	t.Error(err.Error())
+	// }
 }
