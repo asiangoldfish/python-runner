@@ -103,14 +103,14 @@ func Run(args []string) error {
 	info, err := os.Stat(scriptName)
 	if err == nil {
 		if info.IsDir() {
-			return errors.New(scriptName+" is a directory. It must be a file.")
+			return errors.New(scriptName + " is a directory. It must be a file.")
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		// File not found
-		return errors.New("Script "+scriptName+" does not exist.")
+		return errors.New("Script " + scriptName + " does not exist.")
 	} else {
 		// Other errors
-		return errors.New("File "+scriptName+" cannot be accessed. Error: " + err.Error())
+		return errors.New("File " + scriptName + " cannot be accessed. Error: " + err.Error())
 	}
 
 	// Get the bin path
@@ -441,14 +441,8 @@ func FindPipCommand(binDir string, verbose bool) (string, error) {
 	}
 
 	// Prevent using global pip command
-	_, err := os.Stat(pipCommand)
-	if err != nil {
-		// The command may be recognised, but the file does not exist. This can
-		// happen on Windows, as files can be executed without *.exe.
-		_, windowsErr := os.Stat(pipCommand + ".exe")
-		if windowsErr != nil {
-			return "", errors.New("Pip command '" + pipCommand + "' was recognised but not found as a file.")
-		}
+	if _, err := exec.LookPath(pipCommand); err != nil {
+		return "", errors.New("Pip command '" + pipCommand + "' was recognised but not found as a file.")
 	}
 
 	if verbose {
@@ -472,7 +466,7 @@ func ExecuteCmd(name string, args []string, venvParentDir string) error {
 		return err
 	}
 
-	if _, err := os.Stat(binDir + "/" + name); err != nil {
+	if _, err := exec.LookPath(binDir + "/" + name); err != nil {
 		return errors.New("Command " + name + " is not found in " + binDir)
 	}
 
@@ -482,7 +476,7 @@ func ExecuteCmd(name string, args []string, venvParentDir string) error {
 	}
 
 	cmd := exec.Command(
-		name,
+		binDir+"/"+name,
 		cmdArgs...,
 	)
 

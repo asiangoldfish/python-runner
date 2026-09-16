@@ -7,7 +7,7 @@ import (
 	"github.com/asiangoldfish/python-runner/lib"
 )
 
-const VERSION = "1.2.5"
+const VERSION = "1.2.6"
 
 var VERBOSE = false
 
