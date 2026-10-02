@@ -31,6 +31,7 @@ List of available options:
     init                 initialise a new or existing project
     help                 this page
     install              install a package using pip
+        --no-save        do not save installed packages to requirements.txt
     run [SCRIPT_NAME]    execute a Python script
     version              show the version number
 
@@ -140,9 +141,25 @@ func Run(args []string) error {
 //
 // venvParentDir specifies in which directory the ".venv" directory is in.
 func InstallPackage(packages []string, verbose bool, venvParentDir string) error {
+	noSave := false
+
+	// Remove --no-save
+	noSaveIndex := -1
+	for i, v := range packages {
+		if v == "--no-save" {
+			noSave = true
+			noSaveIndex = i
+			break
+		}
+	}
+
 	// Check script presence
 	if len(packages) == 0 {
 		return errors.New("Option 'install' requires at least one package to install.")
+	}
+
+	if noSave {
+		packages = append(packages[:noSaveIndex], packages[noSaveIndex+1:]...)
 	}
 
 	binDir, err := GetBinDir(venvParentDir)
@@ -170,18 +187,20 @@ func InstallPackage(packages []string, verbose bool, venvParentDir string) error
 		return err
 	}
 
-	fmt.Println("Saving dependencies to requirements.txt...")
-	cmd = exec.Command(pipCommand, "freeze")
+	if !noSave {
+		fmt.Println("Saving dependencies to requirements.txt...")
+		cmd = exec.Command(pipCommand, "freeze")
 
-	outfile, err := os.Create(venvParentDir + "/requirements.txt")
-	if err != nil {
-		return errors.New("Failed to create requirements.txt. Error: " + err.Error())
-	}
-	defer outfile.Close()
-	cmd.Stdout = outfile
+		outfile, err := os.Create(venvParentDir + "/requirements.txt")
+		if err != nil {
+			return errors.New("Failed to create requirements.txt. Error: " + err.Error())
+		}
+		defer outfile.Close()
+		cmd.Stdout = outfile
 
-	if err := cmd.Run(); err != nil {
-		return errors.New("Failed to save dependencies to requirements.txt. Error: " + err.Error())
+		if err := cmd.Run(); err != nil {
+			return errors.New("Failed to save dependencies to requirements.txt. Error: " + err.Error())
+		}
 	}
 
 	fmt.Println("Packages successfully installed!")
