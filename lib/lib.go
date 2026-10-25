@@ -46,7 +46,151 @@ Option 'cmd' executes an installed executable file from the virtual environment.
 Some packages provide a CLI interface, and this option can invoke them.`)
 }
 
+// Initialise the Python project.
+//
+// This function supports two methods of initialising a project:
+//  1. New method with pyproject.toml
+//  2. The traditional pip method with requirements.txt
+//
+// The function prompts the user which method to work with. Option 1 is selected
+// by default.
 func Initialise(verbose bool) bool {
+	inputOption := "-1"
+	reader := bufio.NewReader(os.Stdin)
+
+	var err error
+
+	// Prompt for confirmation
+	for inputOption != "1" && inputOption != "2" {
+		fmt.Print("Initialise with 'pyproject.toml' (1) or traditional method (2)? (default: 1) ")
+
+		inputOption, err = reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading input:", err)
+			return false
+		}
+
+		inputOption = strings.TrimRight(inputOption, "\n")
+		inputOption = strings.TrimSpace(inputOption)
+		inputOption = strings.ToLower(inputOption)
+
+		if inputOption == "" {
+			inputOption = "1"
+		}
+		if inputOption != "1" && inputOption != "2" {
+			fmt.Println("Must be either '1' or '2'")
+		}
+	}
+
+	if inputOption == "1" {
+		return initialisePyproject(verbose)
+	} else {
+		return initialiseTraditional(verbose)
+	}
+}
+
+// initialisePyproject creates a new project with pyproject.toml.
+//
+// The following questions are asked as part of the procedure:
+//  1. Project name
+//  2. Version (default: 1.0.0)
+//  3. Description
+//  4. Python version, e.g. >=3.14
+func initialisePyproject(verbose bool) bool {
+	var projectName string
+	var projectVersion string
+	var description string
+	var pythonVersion string
+
+	// Project name
+	input := ""
+	reader := bufio.NewReader(os.Stdin)
+
+	var err error
+
+	for input == "" {
+		fmt.Print("Project name: ")
+
+		input, err = reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading input:", err)
+			return false
+		}
+
+		input = strings.TrimRight(input, "\n")
+		input = strings.TrimSpace(input)
+	}
+	projectName = input
+
+	// Project version
+	input = ""
+	for input == "" {
+		fmt.Print("Version (default: 1.0.0): ")
+
+		input, err = reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading input:", err)
+			return false
+		}
+
+		input = strings.TrimRight(input, "\n")
+		input = strings.TrimSpace(input)
+
+		if input == "" {
+			input = "1.0.0"
+		}
+	}
+	projectVersion = input
+
+	// Description
+	input = ""
+	fmt.Print("Description (empty prompt to skip): ")
+	input, err = reader.ReadString('\n')
+	if err != nil {
+		fmt.Println("Error reading input:", err)
+		return false
+	}
+
+	input = strings.TrimRight(input, "\n")
+	input = strings.TrimSpace(input)
+
+	description = input
+
+	// Python version
+	input = ""
+
+	// TODO validate Python version
+	for input == "" {
+		fmt.Print("Python version (e.g. >=3.14 or 3.12): ")
+
+		input, err = reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading input:", err)
+			return false
+		}
+
+		input = strings.TrimRight(input, "\n")
+		input = strings.TrimSpace(input)
+	}
+	pythonVersion = input
+
+	fileContent := fmt.Sprintf(`[project]
+name = "%s"
+version = "%s"
+description = "%s"
+requires-python = "%s"
+`, projectName, projectVersion, description, pythonVersion)
+
+	err = os.WriteFile("pyproject.toml", []byte(fileContent), 0644)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return false
+	}
+
+	return true
+}
+
+func initialiseTraditional(verbose bool) bool {
 	venvDir := ".venv"
 	var version string
 
