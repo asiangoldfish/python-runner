@@ -174,6 +174,12 @@ func initialisePyproject(verbose bool) bool {
 	}
 	pythonVersion = input
 
+	// Install Python version
+	if _, err := InstallPythonVersion(pythonVersion); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return false
+	}
+
 	fileContent := fmt.Sprintf(`[project]
 name = "%s"
 version = "%s"
